@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="lv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Conway dzīvības spēle</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="app">
+    <header>
+      <div>
+        <p class="eyebrow">Šūnu automāts</p>
+        <h1>Dzīvības spēle</h1>
+      </div>
+      <div class="status" aria-live="polite">
+        <span id="statusDot" class="status-dot"></span>
+        <span id="statusText">Apturēts</span>
+      </div>
+    </header>
+
+    <section class="board-shell">
+      <canvas id="game" aria-label="Conway's Game of Life režģis"></canvas>
+    </section>
+
+    <footer>
+      <div class="controls">
+        <button id="startBtn" class="primary" type="button">Sākt</button>
+        <button id="stopBtn" type="button">Apturēt</button>
+        <button id="clearBtn" type="button">Notīrīt</button>
+        <button id="randomBtn" type="button">Izlases</button>
+      </div>
+      <div class="help">
+        <span><b class="mouse left"></b> Kreisais — pievienot</span>
+        <span><b class="mouse right"></b> Labais — dzēst</span>
+      </div>
+    </footer>
+  </main>
+  <script src="script.js"></script>
+</body>
+</html>
