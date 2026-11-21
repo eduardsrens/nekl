@@ -4,6 +4,7 @@ import tkinter as tk
 ROWS = 40
 COLS = 40
 CELL_SIZE = 15
+TICK_MS = 100
 
 
 class GameOfLife:
@@ -42,12 +43,18 @@ class GameOfLife:
         )
         self.canvas.pack(padx=10, pady=(0, 10))
 
-        self.canvas.bind("<B1-Motion>", self.draw_on_left_click)
-        self.canvas.bind("<Button-1>", self.draw_on_left_click)
-        self.canvas.bind("<B3-Motion>", self.erase_on_right_click)
-        self.canvas.bind("<Button-3>", self.erase_on_right_click)
+        self.canvas.bind("<B1-Motion>", self.erase_on_left_click)
+        self.canvas.bind("<Button-1>", self.erase_on_left_click)
+        self.canvas.bind("<B3-Motion>", self.draw_on_right_click)
+        self.canvas.bind("<Button-3>", self.draw_on_right_click)
 
         self.draw_grid()
+
+    def erase_on_left_click(self, event):
+        self.paint(event, False)
+
+    def draw_on_right_click(self, event):
+        self.paint(event, True)
 
     def draw_grid(self):
         self.canvas.delete("all")
@@ -109,16 +116,24 @@ class GameOfLife:
     def start(self):
         if not self.running:
             self.running = True
+            self.start_button.config(state=tk.DISABLED)
+            self.stop_button.config(state=tk.NORMAL)
             self.animate()
 
     def stop(self):
         self.running = False
+        if self.after_id is not None:
+            self.root.after_cancel(self.after_id)
+            self.after_id = None
+        self.start_button.config(state=tk.NORMAL)
+        self.stop_button.config(state=tk.DISABLED)
 
     def animate(self):
         if not self.running:
+            self.after_id = None
             return
         self.step()
-        self.root.after(TICK_MS, self.animate)
+        self.after_id = self.root.after(TICK_MS, self.animate)
 
     def clear(self):
         self.stop()
@@ -130,4 +145,5 @@ class GameOfLife:
 
 
 if __name__ == "__main__":
-    GameOfLife().run()
+    root = tk.Tk()
+    GameOfLife(root).run()
