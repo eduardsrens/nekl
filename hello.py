@@ -1,130 +1,213 @@
 import tkinter as tk
 
 
-CELL_SIZE = 20
-ROWS = 30
-COLS = 40
+MAZE = (
+    "#########################",
+    "#A  #       #           #",
+    "# # # ##### # ######### #",
+    "# #   #   #   #       # #",
+    "# ##### # ##### ##### # #",
+    "#     # #     #     #   #",
+    "##### # ##### ##### ### #",
+    "#   # #     #     #   # #",
+    "# # # ##### ##### # # # #",
+    "# #       #     #   #   #",
+    "# ####### ##### ####### #",
+    "#       #     #       # #",
+    "# ##### ##### # ##### # #",
+    "#     #       #     #  B#",
+    "#########################",
+)
+CELL_SIZE = 34
+MOVES = ((1, 0), (0, 1), (-1, 0), (0, -1))
 
 
-class LifeGame:
+def find_all_paths(maze):
+    start = next(
+        (row, col)
+        for row, line in enumerate(maze)
+        for col, cell in enumerate(line)
+        if cell == "A"
+    )
+    goal = next(
+        (row, col)
+        for row, line in enumerate(maze)
+        for col, cell in enumerate(line)
+        if cell == "B"
+    )
+    paths = []
+
+    def search(cell, path, visited):
+        if cell == goal:
+            paths.append(path.copy())
+            return
+
+        row, col = cell
+        for dr, dc in MOVES:
+            neighbor = (row + dr, col + dc)
+            nr, nc = neighbor
+            if (
+                0 <= nr < len(maze)
+                and 0 <= nc < len(maze[nr])
+                and maze[nr][nc] != "#"
+                and neighbor not in visited
+            ):
+                visited.add(neighbor)
+                path.append(neighbor)
+                search(neighbor, path, visited)
+                path.pop()
+                visited.remove(neighbor)
+
+    search(start, [start], {start})
+    return paths
+
+
+class MazeSolver:
     def __init__(self, root):
         self.root = root
-        self.root.title("Conway's Game of Life")
+        self.root.title("Labirints: ceļš no A līdz B")
+        self.root.resizable(False, False)
 
+        self.paths = find_all_paths(MAZE)
+        self.path_index = 0
+        self.step = 0
         self.running = False
-        self.grid = [[False for _ in range(COLS)] for _ in range(ROWS)]
+        self.start = next(
+            (row, col)
+            for row, line in enumerate(MAZE)
+            for col, cell in enumerate(line)
+            if cell == "A"
+        )
+
+        self.status = tk.StringVar()
+        tk.Label(
+            root,
+            text="Atrodi visus iespējamos ceļus cauri labirintam",
+            font=("Segoe UI", 15, "bold"),
+        ).pack(pady=(12, 4))
 
         self.canvas = tk.Canvas(
             root,
-            width=COLS * CELL_SIZE,
-            height=ROWS * CELL_SIZE,
-            bg="blue",
+            width=len(MAZE[0]) * CELL_SIZE,
+            height=len(MAZE) * CELL_SIZE,
+            bg="#172033",
+            highlightthickness=0,
         )
-        self.canvas.pack(padx=10, pady=10)
+        self.canvas.pack(padx=16, pady=10)
 
         controls = tk.Frame(root)
-        controls.pack(pady=(0, 10))
-
-        self.start_button = tk.Button(controls, text="Start", width=10, command=self.start)
-        self.start_button.pack(side=tk.LEFT, padx=5)
-
-        self.stop_button = tk.Button(controls, text="Stop", width=10, command=self.stop)
-        self.stop_button.pack(side=tk.LEFT, padx=5)
-
-        tk.Button(controls, text="Clear", width=10, command=self.clear).pack(
-            side=tk.LEFT, padx=5
+        controls.pack(pady=(0, 8))
+        tk.Button(controls, text="◀ Iepriekšējais", command=self.previous_path).pack(
+            side=tk.LEFT, padx=4
+        )
+        tk.Button(controls, text="Nākamais ▶", command=self.next_path).pack(
+            side=tk.LEFT, padx=4
+        )
+        self.play_button = tk.Button(controls, text="▶ Sākt", command=self.play)
+        self.play_button.pack(side=tk.LEFT, padx=4)
+        tk.Button(controls, text="■ Apturēt", command=self.stop).pack(
+            side=tk.LEFT, padx=4
         )
 
-        self.draw_lines()
-        self.canvas.bind("<Button-1>", self.draw_cell)
-        self.canvas.bind("<B1-Motion>", self.draw_cell)
-        self.canvas.bind("<Button-3>", self.erase_cell)
-        self.canvas.bind("<B3-Motion>", self.erase_cell)
+        tk.Label(root, textvariable=self.status, font=("Segoe UI", 10)).pack(pady=(0, 12))
+        self.show_path()
 
-    def draw_lines(self):
-        for row in range(ROWS + 1):
-            y = row * CELL_SIZE
-            self.canvas.create_line(0, y, COLS * CELL_SIZE, y, fill="#dddddd")
-        for col in range(COLS + 1):
-            x = col * CELL_SIZE
-            self.canvas.create_line(x, 0, x, ROWS * CELL_SIZE, fill="#dddddd")
+    def show_path(self):
+        if not self.paths:
+            self.status.set("No A līdz B ceļa nav.")
+            self.draw_maze([])
+            return
+        path = self.paths[self.path_index]
+        self.step = 0
+        self.draw_maze(path)
+        self.status.set(
+            f"Ceļš {self.path_index + 1} no {len(self.paths)}"
+            f"  |  {len(path) - 1} soļi"
+        )
 
-    def cell_from_event(self, event):
-        col = max(0, min(COLS - 1, event.x // CELL_SIZE))
-        row = max(0, min(ROWS - 1, event.y // CELL_SIZE))
-        return row, col
-
-    def draw_cell(self, event):
-        row, col = self.cell_from_event(event)
-        self.grid[row][col] = True
-        self.redraw()
-
-    def erase_cell(self, event):
-        row, col = self.cell_from_event(event)
-        self.grid[row][col] = False
-        self.redraw()
-
-    def redraw(self):
+    def draw_maze(self, path):
         self.canvas.delete("all")
-        self.draw_lines()
-        for row in range(ROWS):
-            for col in range(COLS):
-                if self.grid[row][col]:
-                    x1 = col * CELL_SIZE
-                    y1 = row * CELL_SIZE
-                    self.canvas.create_rectangle(
-                        x1 + 1,
-                        y1 + 1,
-                        x1 + CELL_SIZE - 1,
-                        y1 + CELL_SIZE - 1,
-                        fill="black",
-                        outline="",
+        path_cells = set(path)
+        current = path[min(self.step, len(path) - 1)] if path else None
+        for row, line in enumerate(MAZE):
+            for col, cell in enumerate(line):
+                x1 = col * CELL_SIZE
+                y1 = row * CELL_SIZE
+                x2 = x1 + CELL_SIZE
+                y2 = y1 + CELL_SIZE
+                if cell == "#":
+                    color = "#24334f"
+                elif (row, col) in path_cells:
+                    color = "#ffe066"
+                else:
+                    color = "#f4f6fb"
+                self.canvas.create_rectangle(
+                    x1, y1, x2, y2, fill=color, outline="#d5dbe7", width=1
+                )
+                if cell in ("A", "B"):
+                    marker_color = "#16803c" if cell == "A" else "#cf3030"
+                    self.canvas.create_text(
+                        x1 + CELL_SIZE // 2,
+                        y1 + CELL_SIZE // 2,
+                        text=cell,
+                        fill=marker_color,
+                        font=("Segoe UI", 14, "bold"),
                     )
 
-    def count_neighbors(self, row, col):
-        count = 0
-        for dr in (-1, 0, 1):
-            for dc in (-1, 0, 1):
-                if dr == 0 and dc == 0:
-                    continue
-                r = row + dr
-                c = col + dc
-                if 0 <= r < ROWS and 0 <= c < COLS and self.grid[r][c]:
-                    count += 1
-        return count
+        if current is not None:
+            row, col = current
+            inset = 5
+            self.canvas.create_oval(
+                col * CELL_SIZE + inset,
+                row * CELL_SIZE + inset,
+                (col + 1) * CELL_SIZE - inset,
+                (row + 1) * CELL_SIZE - inset,
+                fill="#ff9f1c",
+                outline="#b45309",
+                width=2,
+            )
 
-    def update(self):
+    def change_path(self, offset):
+        if not self.paths:
+            return
+        self.stop()
+        self.path_index = (self.path_index + offset) % len(self.paths)
+        self.show_path()
+
+    def previous_path(self):
+        self.change_path(-1)
+
+    def next_path(self):
+        self.change_path(1)
+
+    def play(self):
+        if not self.paths or self.running:
+            return
+        self.running = True
+        self.step = 0
+        self.animate()
+
+    def animate(self):
         if not self.running:
             return
-
-        next_grid = [[False for _ in range(COLS)] for _ in range(ROWS)]
-        for row in range(ROWS):
-            for col in range(COLS):
-                neighbors = self.count_neighbors(row, col)
-                if self.grid[row][col]:
-                    next_grid[row][col] = neighbors in (2, 3)
-                else:
-                    next_grid[row][col] = neighbors == 3
-
-        self.grid = next_grid
-        self.redraw()
-        self.root.after(100, self.update)
-
-    def start(self):
-        if not self.running:
-            self.running = True
-            self.update()
+        path = self.paths[self.path_index]
+        if self.step >= len(path):
+            self.running = False
+            self.status.set(
+                f"Ceļš {self.path_index + 1} no {len(self.paths)} sasniedza B!"
+            )
+            return
+        self.draw_maze(path)
+        self.step += 1
+        self.root.after(140, self.animate)
 
     def stop(self):
         self.running = False
-
-    def clear(self):
-        self.stop()
-        self.grid = [[False for _ in range(COLS)] for _ in range(ROWS)]
-        self.redraw()
+        if self.paths:
+            self.show_path()
 
 
 if __name__ == "__main__":
     root = tk.Tk()
-    LifeGame(root)
+    MazeSolver(root)
     root.mainloop()
